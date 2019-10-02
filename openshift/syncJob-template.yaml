@@ -1,21 +1,21 @@
 apiVersion: v1
 kind: Template
 metadata:
-  name: graph-sync-job-provenance-checker
+  name: graph-sync-job-mutliple
   annotations:
-    description: "Thoth: Graph Sync Job for provenance-checker documents"
-    openshift.io/display-name: "Thoth: Graph Sync Job Provenance Checker"
-    version: 0.6.1
+    description: "Thoth: Graph Sync Job for syncing multiple documents"
+    openshift.io/display-name: "Thoth: Graph Sync Job Multiple Documents"
+    version: 0.0.1
     tags: thoth,ai-stacks,aistacks,graph-sync-job
     template.openshift.io/documentation-url: https://github.com/Thoth-Station/
     template.openshift.io/long-description: >
-      This template defines resources needed to deploy Thoth's Graph Sync Job for Provenance Checkers on OpenShift.
+      This template defines resources needed to deploy Thoth's Graph Sync Job on OpenShift.
     template.openshift.io/provider-display-name: Red Hat, Inc.
   labels:
-    template: graph-sync-job-provenance-checker
+    template: graph-sync-job-multiple
     app: thoth
     component: graph-sync
-    graph-sync-type: provenance-checker
+    graph-sync-type: multiple
 
 parameters:
   - description: Registry the ImageStream to be use lives in
@@ -24,7 +24,7 @@ parameters:
     name: IMAGE_STREAM_REGISTRY
     value: "docker-registry.default.svc:5000"
 
-  - description: Namespace the ImageStream to be use lives in
+  - description: Namespace the ImageStream to be used
     displayName: ImageStream Project
     required: true
     name: IMAGE_STREAM_NAMESPACE
@@ -36,13 +36,52 @@ parameters:
     name: IMAGE_STREAM_TAG
     value: "latest"
 
-  - name: THOTH_SYNC_DOCUMENT_ID
+  - name: THOTH_ONLY_SOLVER_DOCUMENTS
+    displayName: Sync only solver documents
+    description: Sync only solver documents
     required: true
-    description: Document id to be synced.
+    value: "1"
+
+  - name: THOTH_ONLY_ADVISER_DOCUMENTS
+    displayName: Sync only adviser documents
+    description: Sync only adviser documents
+    required: true
+    value: "0"
+
+  - name: THOTH_ONLY_ANALYSIS_DOCUMENTS
+    displayName: Sync only analysis documents
+    description: Sync only analysis documents
+    required: true
+    value: "0"
+
+  - name: THOTH_ONLY_PACKAGE_ANALYZER_DOCUMENTS
+    displayName: Sync only package analyzer documents
+    description: Sync only package analyzer documents
+    required: true
+    value: "0"
+
+  - name: THOTH_ONLY_DEPENDENCY_MONKEY_DOCUMENTS
+    displayName: Sync only dependency monkey documents
+    description: Sync only dependency monkey documents
+    required: true
+    value: "0"
+
+  - name: THOTH_ONLY_PROVENANCE_CHECKER_DOCUMENTS
+    displayName: Sync only provenance checker documents
+    description: Sync only provenance checker documents
+    required: true
+    value: "0"
+
+  - name: THOTH_FORCE_SYNC
+    description: Perform force sync - sync data even if they are reported to be existing
+    displayName: Perform force sync
+    required: true
+    value: "0"
 
   - name: THOTH_JOB_ID
+    description: A unique identifier of job
+    displayName: A unique identifier of job
     required: true
-    description: Graph sync job identifier.
 
 objects:
   - apiVersion: batch/v1
@@ -52,35 +91,47 @@ objects:
       labels:
         app: thoth
         component: graph-sync
-        graph-sync-document-id: "${THOTH_SYNC_DOCUMENT_ID}"
-        graph-sync-type: provenance-checker
-        # Clean this up after one hour.
+        graph-sync-type: multiple
         mark: cleanup
-        ttl: "1h"
+        ttl: "24h"
     spec:
-      backoffLimit: 10
+      backoffLimit: 1
       template:
         metadata:
           labels:
             app: thoth
             component: graph-sync
+            graph-sync-type: multiple
             mark: cleanup
-            ttl: "1h"
+            ttl: "24h"
         spec:
           containers:
             - name: graph-sync
               image: "${IMAGE_STREAM_REGISTRY}/${IMAGE_STREAM_NAMESPACE}/graph-sync-job:${IMAGE_STREAM_TAG}"
               env:
+                - name: THOTH_ONLY_SOLVER_DOCUMENTS
+                  value: "${THOTH_ONLY_SOLVER_DOCUMENTS}"
+                - name: THOTH_ONLY_ADVISER_DOCUMENTS
+                  value: "${THOTH_ONLY_ADVISER_DOCUMENTS}"
+                - name: THOTH_ONLY_ANALYSIS_DOCUMENTS
+                  value: "${THOTH_ONLY_ANALYSIS_DOCUMENTS}"
+                - name: THOTH_ONLY_PACKAGE_ANALYZER_DOCUMENTS
+                  value: "${THOTH_ONLY_PACKAGE_ANALYZER_DOCUMENTS}"
+                - name: THOTH_ONLY_DEPENDENCY_MONKEY_DOCUMENTS
+                  value: "${THOTH_ONLY_DEPENDENCY_MONKEY_DOCUMENTS}"
                 - name: THOTH_ONLY_PROVENANCE_CHECKER_DOCUMENTS
-                  value: "1"
-                - name: THOTH_SYNC_DOCUMENT_ID
-                  value: "${THOTH_SYNC_DOCUMENT_ID}"
+                  value: "${THOTH_ONLY_DEPENDENCY_MONKEY_DOCUMENTS}"
                 - name: THOTH_FORCE_SYNC
-                  value: "1"
+                  value: "${THOTH_FORCE_SYNC}"
                 - name: THOTH_DEPLOYMENT_NAME
                   valueFrom:
                     configMapKeyRef:
                       key: storage-bucket-name
+                      name: thoth
+                - name: AMUN_API_URL
+                  valueFrom:
+                    configMapKeyRef:
+                      key: amun-api-url
                       name: thoth
                 - name: THOTH_S3_ENDPOINT_URL
                   valueFrom:
@@ -147,9 +198,9 @@ objects:
                       key: database-name
               resources:
                 requests:
-                  memory: "128Mi"
-                  cpu: "125m"
-                limits:
                   memory: "256Mi"
-                  cpu: "500m"
+                  cpu: "1"
+                limits:
+                  memory: "512Mi"
+                  cpu: "1"
           restartPolicy: OnFailure

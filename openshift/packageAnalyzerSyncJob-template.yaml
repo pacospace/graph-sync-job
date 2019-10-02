@@ -1,21 +1,21 @@
 apiVersion: v1
 kind: Template
 metadata:
-  name: graph-sync-job-provenance-checker
+  name: graph-sync-job-package-analyzer
   annotations:
-    description: "Thoth: Graph Sync Job for provenance-checker documents"
-    openshift.io/display-name: "Thoth: Graph Sync Job Provenance Checker"
+    description: "Thoth: Graph Sync Job for package-analyzer documents"
+    openshift.io/display-name: "Thoth: Graph Sync Job Package-Analyzer"
     version: 0.6.1
     tags: thoth,ai-stacks,aistacks,graph-sync-job
     template.openshift.io/documentation-url: https://github.com/Thoth-Station/
     template.openshift.io/long-description: >
-      This template defines resources needed to deploy Thoth's Graph Sync Job for Provenance Checkers on OpenShift.
+      This template defines resources needed to deploy Thoth's Graph Sync Job for Package-Analyzers on OpenShift.
     template.openshift.io/provider-display-name: Red Hat, Inc.
   labels:
-    template: graph-sync-job-provenance-checker
+    template: graph-sync-job-package-analyzer
     app: thoth
     component: graph-sync
-    graph-sync-type: provenance-checker
+    graph-sync-type: package-analyzer
 
 parameters:
   - description: Registry the ImageStream to be use lives in
@@ -53,7 +53,7 @@ objects:
         app: thoth
         component: graph-sync
         graph-sync-document-id: "${THOTH_SYNC_DOCUMENT_ID}"
-        graph-sync-type: provenance-checker
+        graph-sync-type: package-analyzer
         # Clean this up after one hour.
         mark: cleanup
         ttl: "1h"
@@ -64,6 +64,8 @@ objects:
           labels:
             app: thoth
             component: graph-sync
+            graph-sync-document-id: "${THOTH_SYNC_DOCUMENT_ID}"
+            graph-sync-type: package-analyzer
             mark: cleanup
             ttl: "1h"
         spec:
@@ -71,7 +73,7 @@ objects:
             - name: graph-sync
               image: "${IMAGE_STREAM_REGISTRY}/${IMAGE_STREAM_NAMESPACE}/graph-sync-job:${IMAGE_STREAM_TAG}"
               env:
-                - name: THOTH_ONLY_PROVENANCE_CHECKER_DOCUMENTS
+                - name: THOTH_ONLY_PACKAGE_ANALYZER_DOCUMENTS
                   value: "1"
                 - name: THOTH_SYNC_DOCUMENT_ID
                   value: "${THOTH_SYNC_DOCUMENT_ID}"
@@ -145,6 +147,13 @@ objects:
                     secretKeyRef:
                       name: postgresql
                       key: database-name
+              livenessProbe:
+                # Give sync 2 hours, if not finished, restart it.
+                tcpSocket:
+                  port: 80
+                initialDelaySeconds: 7200
+                failureThreshold: 1
+                periodSeconds: 10
               resources:
                 requests:
                   memory: "128Mi"
